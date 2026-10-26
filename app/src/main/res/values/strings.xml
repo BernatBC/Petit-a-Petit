@@ -5,13 +5,15 @@
     <string name="step_write">2. Écrire</string>
     <string name="step_speak">3. Parler avec Gemini</string>
 
-    <string name="listen_intro">Écoute le dernier épisode du « Journal en français facile » de RFI, puis choisis une actualité à résumer.</string>
     <string name="listen_loading">Chargement de l\'épisode…</string>
     <string name="listen_error">Impossible de charger l\'épisode. Vérifie ta connexion.</string>
     <string name="retry">Réessayer</string>
     <string name="play">Lecture</string>
     <string name="pause">Pause</string>
     <string name="playback_speed">Vitesse de lecture : %1$s</string>
+    <string name="transcript_loading">Chargement de la transcription…</string>
+    <string name="transcript_unavailable">Transcription indisponible pour cet épisode.</string>
+    <string name="transcript_follow">Suivre la lecture</string>
     <string name="open_website">Ouvrir sur le site RFI</string>
     <string name="listened_done">J\'ai fini d\'écouter</string>
 
