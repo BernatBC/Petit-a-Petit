@@ -1,0 +1,33 @@
+<resources>
+    <string name="app_name">Petit à Petit</string>
+
+    <string name="step_listen">1. Écouter</string>
+    <string name="step_write">2. Écrire</string>
+    <string name="step_speak">3. Parler avec Gemini</string>
+
+    <string name="listen_intro">Écoute le dernier épisode du « Journal en français facile » de RFI, puis choisis une actualité à résumer.</string>
+    <string name="listen_loading">Chargement de l\'épisode…</string>
+    <string name="listen_error">Impossible de charger l\'épisode. Vérifie ta connexion.</string>
+    <string name="retry">Réessayer</string>
+    <string name="play">Lecture</string>
+    <string name="pause">Pause</string>
+    <string name="playback_speed">Vitesse de lecture : %1$s</string>
+    <string name="open_website">Ouvrir sur le site RFI</string>
+    <string name="listened_done">J\'ai fini d\'écouter</string>
+
+    <string name="write_intro">Résume en français une actualité que tu viens d\'entendre.</string>
+    <string name="write_topic_label">Sujet de l\'actualité (facultatif)</string>
+    <string name="write_summary_label">Mon résumé</string>
+    <string name="write_word_count">%1$d / %2$d mots minimum</string>
+    <string name="back">Retour</string>
+    <string name="next">Continuer</string>
+
+    <string name="prompt_intro">Voici le prompt généré. Tu peux le modifier avant de l\'envoyer à Gemini.</string>
+    <string name="prompt_label">Prompt</string>
+    <string name="prompt_copy_and_open">Copier et ouvrir Gemini</string>
+    <string name="prompt_copy_only">Copier seulement</string>
+    <string name="prompt_copied">Prompt copié. Colle-le dans Gemini.</string>
+    <string name="prompt_gemini_missing">Gemini n\'est pas installé : ouverture dans le navigateur.</string>
+    <string name="prompt_restart">Terminer et recommencer</string>
+    <string name="prompt_clipboard_label">Prompt Petit à Petit</string>
+</resources>
