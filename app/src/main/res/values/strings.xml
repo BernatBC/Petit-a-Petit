@@ -14,6 +14,7 @@
     <string name="transcript_loading">Chargement de la transcription…</string>
     <string name="transcript_unavailable">Transcription indisponible pour cet épisode.</string>
     <string name="transcript_follow">Suivre la lecture</string>
+    <string name="translation_failed">Traduction indisponible</string>
     <string name="open_website">Ouvrir sur le site RFI</string>
     <string name="listened_done">J\'ai fini d\'écouter</string>
 

@@ -12,9 +12,14 @@ import androidx.media3.session.SessionToken
 import com.github.bernatbc.petitapetit.data.Episode
 import com.github.bernatbc.petitapetit.data.EpisodeRepository
 import com.github.bernatbc.petitapetit.data.TranscriptRepository
+import com.github.bernatbc.petitapetit.data.translation.FallbackTranslator
+import com.github.bernatbc.petitapetit.data.translation.MlKitTranslator
+import com.github.bernatbc.petitapetit.data.translation.MyMemoryTranslator
+import com.github.bernatbc.petitapetit.domain.WordLookup
 import com.github.bernatbc.petitapetit.domain.TranscriptSegment
 import com.github.bernatbc.petitapetit.player.PlaybackService
 import com.google.common.util.concurrent.MoreExecutors
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,6 +28,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+
+data class WordTranslation(
+    val word: String,
+    val translation: String? = null,
+    val failed: Boolean = false,
+)
 
 data class ListenUiState(
     val loading: Boolean = true,
@@ -34,12 +45,17 @@ data class ListenUiState(
     val speed: Float = 1f,
     val transcriptLoading: Boolean = false,
     val transcript: List<TranscriptSegment> = emptyList(),
+    val wordTranslation: WordTranslation? = null,
 )
 
 class ListenViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = EpisodeRepository()
     private val transcriptRepository = TranscriptRepository()
+    private val mlKitTranslator = MlKitTranslator()
+    private val translator = FallbackTranslator(mlKitTranslator, MyMemoryTranslator())
+    private val translationCache = HashMap<String, String>()
+    private var translationJob: Job? = null
     private val _state = MutableStateFlow(ListenUiState())
     val state: StateFlow<ListenUiState> = _state.asStateFlow()
 
@@ -121,6 +137,39 @@ class ListenViewModel(application: Application) : AndroidViewModel(application) 
         _state.update { it.copy(speed = next) }
     }
 
+    fun translateWord(rawWord: String) {
+        translationJob?.cancel()
+        val word = WordLookup.normalize(rawWord)
+        if (word.isEmpty()) {
+            _state.update { it.copy(wordTranslation = null) }
+            return
+        }
+        val cached = translationCache[word.lowercase()]
+        if (cached != null) {
+            _state.update { it.copy(wordTranslation = WordTranslation(word, cached)) }
+            return
+        }
+        _state.update { it.copy(wordTranslation = WordTranslation(word)) }
+        translationJob = viewModelScope.launch {
+            val translation = try {
+                WordLookup.matchCase(word, translator.translate(word))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                null
+            }
+            if (translation != null) translationCache[word.lowercase()] = translation
+            _state.update {
+                it.copy(wordTranslation = WordTranslation(word, translation, failed = translation == null))
+            }
+        }
+    }
+
+    fun dismissTranslation() {
+        translationJob?.cancel()
+        _state.update { it.copy(wordTranslation = null) }
+    }
+
     private fun connectController() {
         val application = getApplication<Application>()
         val token = SessionToken(application, ComponentName(application, PlaybackService::class.java))
@@ -161,6 +210,7 @@ class ListenViewModel(application: Application) : AndroidViewModel(application) 
         controller?.removeListener(playerListener)
         controller?.release()
         controller = null
+        mlKitTranslator.close()
     }
 
     private fun Episode.toMediaItem(): MediaItem = MediaItem.Builder()
