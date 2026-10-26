@@ -1,26 +1,27 @@
 package com.github.bernatbc.petitapetit.ui.listen
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
@@ -40,32 +41,34 @@ fun TranslationPopup(
     onSave: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val edgeMargin = with(LocalDensity.current) { 16.dp.roundToPx() }
     Popup(
-        popupPositionProvider = WordPopupPositionProvider(anchor),
+        popupPositionProvider = WordPopupPositionProvider(anchor, edgeMargin),
         properties = PopupProperties(focusable = false, dismissOnClickOutside = false),
     ) {
         Surface(
             shape = MaterialTheme.shapes.medium,
             color = MaterialTheme.colorScheme.inverseSurface,
             contentColor = MaterialTheme.colorScheme.inverseOnSurface,
-            shadowElevation = 6.dp,
+            shadowElevation = 8.dp,
             modifier = Modifier.clickable(onClick = onDismiss),
         ) {
             Row(
-                modifier = Modifier.padding(start = 12.dp, top = 4.dp, bottom = 4.dp, end = 4.dp),
+                modifier = Modifier.padding(start = 16.dp, top = 6.dp, bottom = 6.dp, end = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Column(modifier = Modifier.padding(vertical = 4.dp)) {
                     Text(
                         text = translation.word,
-                        style = MaterialTheme.typography.labelMedium,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.65f),
                     )
                     when {
                         translation.translation != null -> Text(
                             text = translation.translation,
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
+                            fontStyle = FontStyle.Italic,
                         )
 
                         translation.failed -> Text(
@@ -73,7 +76,11 @@ fun TranslationPopup(
                             style = MaterialTheme.typography.bodyMedium,
                         )
 
-                        else -> CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        else -> CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 1.5.dp,
+                            color = MaterialTheme.colorScheme.inverseOnSurface,
+                        )
                     }
                 }
                 if (translation.translation != null) {
@@ -83,6 +90,7 @@ fun TranslationPopup(
                             contentDescription = stringResource(
                                 if (saved) R.string.word_saved else R.string.save_word,
                             ),
+                            tint = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = if (saved) 0.6f else 1f),
                         )
                     }
                 }
@@ -91,7 +99,10 @@ fun TranslationPopup(
     }
 }
 
-private class WordPopupPositionProvider(private val word: Rect) : PopupPositionProvider {
+private class WordPopupPositionProvider(
+    private val word: Rect,
+    private val edgeMargin: Int,
+) : PopupPositionProvider {
     override fun calculatePosition(
         anchorBounds: IntRect,
         windowSize: IntSize,
@@ -101,7 +112,7 @@ private class WordPopupPositionProvider(private val word: Rect) : PopupPositionP
         val gap = 8
         val centerX = anchorBounds.left + word.center.x.toInt()
         val x = (centerX - popupContentSize.width / 2)
-            .coerceIn(0, (windowSize.width - popupContentSize.width).coerceAtLeast(0))
+            .coerceIn(edgeMargin, (windowSize.width - popupContentSize.width - edgeMargin).coerceAtLeast(edgeMargin))
         val above = anchorBounds.top + word.top.toInt() - popupContentSize.height - gap
         val y = if (above >= 0) above else anchorBounds.top + word.bottom.toInt() + gap
         return IntOffset(x, y)

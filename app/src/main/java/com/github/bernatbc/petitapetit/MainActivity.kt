@@ -12,16 +12,15 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -35,8 +34,9 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.github.bernatbc.petitapetit.data.EpisodeRepository
 import kotlinx.coroutines.flow.first
+import com.github.bernatbc.petitapetit.data.EpisodeRepository
+import com.github.bernatbc.petitapetit.ui.components.AppTopBar
 import com.github.bernatbc.petitapetit.ui.dictionary.DictionaryScreen
 import com.github.bernatbc.petitapetit.ui.dictionary.DictionaryViewModel
 import com.github.bernatbc.petitapetit.ui.home.HomeScreen
@@ -75,12 +75,12 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PetitÀPetitApp() {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
-    val title = when (backStackEntry?.destination?.route) {
+    val route = backStackEntry?.destination?.route
+    val title = when (route) {
         Routes.DICTIONARY -> R.string.dictionary_title
         Routes.SETTINGS -> R.string.settings_title
         Routes.LISTEN -> R.string.step_listen
@@ -88,6 +88,13 @@ private fun PetitÀPetitApp() {
         Routes.WRITE -> R.string.step_write
         Routes.PROMPT -> R.string.step_speak
         else -> R.string.app_name
+    }
+    val step = when (route) {
+        Routes.LISTEN -> 1
+        Routes.REVIEW -> 2
+        Routes.WRITE -> 3
+        Routes.PROMPT -> 4
+        else -> null
     }
     val context = LocalContext.current
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
@@ -103,24 +110,33 @@ private fun PetitÀPetitApp() {
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text(stringResource(title)) },
-                navigationIcon = {
-                    if (backStackEntry?.destination?.route in setOf(Routes.DICTIONARY, Routes.SETTINGS)) {
-                        IconButton(onClick = { navController.popBackStack() }) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = stringResource(R.string.back),
-                            )
-                        }
-                    }
-                },
-            )
+            if (route != Routes.HOME) {
+                AppTopBar(
+                    title = stringResource(title),
+                    step = step,
+                    onBack = if (route == Routes.DICTIONARY || route == Routes.SETTINGS) {
+                        { navController.popBackStack() }
+                    } else {
+                        null
+                    },
+                )
+            }
         },
     ) { innerPadding ->
-        val contentModifier = Modifier.padding(innerPadding)
-        NavHost(navController = navController, startDestination = Routes.HOME) {
+        val contentModifier = Modifier
+            .padding(innerPadding)
+            .consumeWindowInsets(innerPadding)
+            .imePadding()
+        NavHost(
+            navController = navController,
+            startDestination = Routes.HOME,
+            enterTransition = { fadeIn(tween(220)) },
+            exitTransition = { fadeOut(tween(120)) },
+            popEnterTransition = { fadeIn(tween(220)) },
+            popExitTransition = { fadeOut(tween(120)) },
+        ) {
             composable(Routes.HOME) {
                 val viewModel: HomeViewModel = viewModel()
                 HomeScreen(
