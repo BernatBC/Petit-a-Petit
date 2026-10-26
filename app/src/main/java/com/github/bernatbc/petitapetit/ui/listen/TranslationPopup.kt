@@ -2,6 +2,13 @@ package com.github.bernatbc.petitapetit.ui.listen
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -29,6 +36,8 @@ import com.github.bernatbc.petitapetit.R
 fun TranslationPopup(
     anchor: Rect,
     translation: WordTranslation,
+    saved: Boolean,
+    onSave: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     Popup(
@@ -42,24 +51,40 @@ fun TranslationPopup(
             shadowElevation = 6.dp,
             modifier = Modifier.clickable(onClick = onDismiss),
         ) {
-            Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-                Text(
-                    text = translation.word,
-                    style = MaterialTheme.typography.labelMedium,
-                )
-                when {
-                    translation.translation != null -> Text(
-                        text = translation.translation,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
+            Row(
+                modifier = Modifier.padding(start = 12.dp, top = 4.dp, bottom = 4.dp, end = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                    Text(
+                        text = translation.word,
+                        style = MaterialTheme.typography.labelMedium,
                     )
+                    when {
+                        translation.translation != null -> Text(
+                            text = translation.translation,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                        )
 
-                    translation.failed -> Text(
-                        text = stringResource(R.string.translation_failed),
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
+                        translation.failed -> Text(
+                            text = stringResource(R.string.translation_failed),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
 
-                    else -> Row { CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp) }
+                        else -> CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                    }
+                }
+                if (translation.translation != null) {
+                    IconButton(onClick = onSave, enabled = !saved) {
+                        Icon(
+                            imageVector = if (saved) Icons.Filled.Check else Icons.Filled.Add,
+                            contentDescription = stringResource(
+                                if (saved) R.string.word_saved else R.string.save_word,
+                            ),
+                        )
+                    }
                 }
             }
         }
