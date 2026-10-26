@@ -79,6 +79,8 @@ private fun PetitÀPetitApp() {
                     onSeek = viewModel::seekTo,
                     onSkip = viewModel::skip,
                     onCycleSpeed = viewModel::cycleSpeed,
+                    onWordTap = viewModel::translateWord,
+                    onDismissTranslation = viewModel::dismissTranslation,
                     onRetry = viewModel::loadEpisode,
                     onOpenWebsite = { pageUrl ->
                         openUrl(context, pageUrl?.takeIf { it.isNotBlank() } ?: EpisodeRepository.WEBSITE_URL)

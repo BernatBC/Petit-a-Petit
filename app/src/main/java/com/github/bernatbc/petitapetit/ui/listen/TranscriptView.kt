@@ -1,6 +1,7 @@
 package com.github.bernatbc.petitapetit.ui.listen
 
 import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -17,36 +18,54 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.github.bernatbc.petitapetit.R
 import com.github.bernatbc.petitapetit.domain.TranscriptSegment
 import com.github.bernatbc.petitapetit.domain.activeSegmentIndex
+import kotlinx.coroutines.delay
+
+private const val TRANSLATION_VISIBLE_MS = 5_000L
+
+private data class WordSelection(val segment: Int, val word: Int)
 
 @Composable
 fun TranscriptView(
     segments: List<TranscriptSegment>,
     positionMs: Long,
-    onWordClick: (Long) -> Unit,
+    wordTranslation: WordTranslation?,
+    onWordTap: (String) -> Unit,
+    onDismissTranslation: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
     var following by remember { mutableStateOf(true) }
+    var selection by remember { mutableStateOf<WordSelection?>(null) }
     val activeIndex = segments.activeSegmentIndex(positionMs)
+
+    fun dismiss() {
+        selection = null
+        onDismissTranslation()
+    }
 
     // A manual drag pauses auto-scroll until the user taps "Suivre la lecture".
     LaunchedEffect(listState) {
         listState.interactionSource.interactions.collect { interaction ->
-            if (interaction is DragInteraction.Start) following = false
+            if (interaction is DragInteraction.Start) {
+                following = false
+                dismiss()
+            }
         }
     }
 
@@ -62,6 +81,15 @@ fun TranscriptView(
         }
     }
 
+    val translationDone = wordTranslation != null &&
+        (wordTranslation.translation != null || wordTranslation.failed)
+    LaunchedEffect(selection, translationDone) {
+        if (selection != null && translationDone) {
+            delay(TRANSLATION_VISIBLE_MS)
+            dismiss()
+        }
+    }
+
     Box(modifier = modifier) {
         LazyColumn(
             state = listState,
@@ -73,12 +101,22 @@ fun TranscriptView(
                     index == activeIndex -> segment.spokenWords(positionMs)
                     else -> 0
                 }
-                val currentWord = if (index == activeIndex) spokenWords - 1 else -1
+                val selectedWord = selection?.takeIf { it.segment == index }?.word ?: -1
                 SegmentText(
                     segment = segment,
                     spokenWords = spokenWords,
-                    currentWord = currentWord,
-                    onWordClick = onWordClick,
+                    currentWord = if (index == activeIndex) spokenWords - 1 else -1,
+                    selectedWord = selectedWord,
+                    translation = if (selectedWord >= 0) wordTranslation else null,
+                    onWordTap = { wordIndex ->
+                        if (selection == WordSelection(index, wordIndex)) {
+                            dismiss()
+                        } else {
+                            selection = WordSelection(index, wordIndex)
+                            onWordTap(segment.words[wordIndex].text)
+                        }
+                    },
+                    onDismissTranslation = ::dismiss,
                 )
             }
         }
@@ -94,16 +132,26 @@ fun TranscriptView(
     }
 }
 
+private class WordRanges(val ranges: List<IntRange>)
+
 @Composable
 private fun SegmentText(
     segment: TranscriptSegment,
     spokenWords: Int,
     currentWord: Int,
-    onWordClick: (Long) -> Unit,
+    selectedWord: Int,
+    translation: WordTranslation?,
+    onWordTap: (Int) -> Unit,
+    onDismissTranslation: () -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
-    val text = remember(segment, spokenWords, currentWord, colors, onWordClick) {
-        buildAnnotatedString {
+    var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
+    var tappedBox by remember { mutableStateOf<Rect?>(null) }
+    val currentOnWordTap by rememberUpdatedState(onWordTap)
+
+    val built = remember(segment, spokenWords, currentWord, selectedWord, colors) {
+        val ranges = ArrayList<IntRange>(segment.words.size)
+        val text = buildAnnotatedString {
             segment.words.forEachIndexed { index, word ->
                 val style = when {
                     index == currentWord -> SpanStyle(
@@ -112,20 +160,56 @@ private fun SegmentText(
                         fontWeight = FontWeight.Bold,
                     )
 
+                    index == selectedWord -> SpanStyle(
+                        color = colors.onSecondaryContainer,
+                        background = colors.secondaryContainer,
+                    )
+
                     index < spokenWords -> SpanStyle(color = colors.onSurface)
                     else -> SpanStyle(color = colors.onSurface.copy(alpha = 0.6f))
                 }
-                val link = LinkAnnotation.Clickable(tag = "word-$index") { onWordClick(word.startMs) }
-                withLink(link) { withStyle(style) { append(word.text) } }
+                val start = length
+                withStyle(style) { append(word.text) }
+                ranges += start until length
                 append(" ")
             }
         }
+        text to WordRanges(ranges)
     }
-    Text(
-        text = text,
-        style = MaterialTheme.typography.bodyLarge,
+    val (text, wordRanges) = built
+
+    Box(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 6.dp),
-    )
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyLarge,
+            onTextLayout = { layout = it },
+            modifier = Modifier
+                .fillMaxWidth()
+                .pointerInput(wordRanges) {
+                    detectTapGestures { position ->
+                        val result = layout ?: return@detectTapGestures
+                        val offset = result.getOffsetForPosition(position)
+                        val index = wordRanges.ranges.indexOfFirst { offset >= it.first && offset <= it.last + 1 }
+                        if (index >= 0) {
+                            val range = wordRanges.ranges[index]
+                            tappedBox = result.getBoundingBox(offset.coerceIn(range.first, range.last))
+                            currentOnWordTap(index)
+                        }
+                    }
+                },
+        )
+
+        val anchor = tappedBox
+        if (selectedWord >= 0 && translation != null && anchor != null) {
+            TranslationPopup(
+                anchor = anchor,
+                translation = translation,
+                onDismiss = onDismissTranslation,
+            )
+        }
+    }
 }
