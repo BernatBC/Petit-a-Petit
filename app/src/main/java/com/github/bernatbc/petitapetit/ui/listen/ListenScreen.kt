@@ -33,6 +33,7 @@ fun ListenScreen(
     onSkip: (Long) -> Unit,
     onCycleSpeed: () -> Unit,
     onWordTap: (String) -> Unit,
+    onSaveWord: (String) -> Unit,
     onDismissTranslation: () -> Unit,
     onRetry: () -> Unit,
     onOpenWebsite: (String?) -> Unit,
@@ -83,7 +84,9 @@ fun ListenScreen(
                         segments = state.transcript,
                         positionMs = state.positionMs,
                         wordTranslation = state.wordTranslation,
+                        savedWords = state.savedWords,
                         onWordTap = onWordTap,
+                        onSaveWord = onSaveWord,
                         onDismissTranslation = onDismissTranslation,
                         modifier = Modifier.weight(1f),
                     )

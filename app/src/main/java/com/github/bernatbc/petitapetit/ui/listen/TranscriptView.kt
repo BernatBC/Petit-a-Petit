@@ -32,11 +32,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.github.bernatbc.petitapetit.R
+import com.github.bernatbc.petitapetit.data.WordRepository
 import com.github.bernatbc.petitapetit.domain.TranscriptSegment
 import com.github.bernatbc.petitapetit.domain.activeSegmentIndex
 import kotlinx.coroutines.delay
 
-private const val TRANSLATION_VISIBLE_MS = 5_000L
+private const val TRANSLATION_VISIBLE_MS = 6_000L
 
 private data class WordSelection(val segment: Int, val word: Int)
 
@@ -45,7 +46,9 @@ fun TranscriptView(
     segments: List<TranscriptSegment>,
     positionMs: Long,
     wordTranslation: WordTranslation?,
+    savedWords: Set<String>,
     onWordTap: (String) -> Unit,
+    onSaveWord: (String) -> Unit,
     onDismissTranslation: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -108,6 +111,9 @@ fun TranscriptView(
                     currentWord = if (index == activeIndex) spokenWords - 1 else -1,
                     selectedWord = selectedWord,
                     translation = if (selectedWord >= 0) wordTranslation else null,
+                    saved = selectedWord >= 0 && wordTranslation != null &&
+                        WordRepository.keyOf(wordTranslation.word) in savedWords,
+                    onSaveWord = onSaveWord,
                     onWordTap = { wordIndex ->
                         if (selection == WordSelection(index, wordIndex)) {
                             dismiss()
@@ -141,6 +147,8 @@ private fun SegmentText(
     currentWord: Int,
     selectedWord: Int,
     translation: WordTranslation?,
+    saved: Boolean,
+    onSaveWord: (String) -> Unit,
     onWordTap: (Int) -> Unit,
     onDismissTranslation: () -> Unit,
 ) {
@@ -208,6 +216,8 @@ private fun SegmentText(
             TranslationPopup(
                 anchor = anchor,
                 translation = translation,
+                saved = saved,
+                onSave = { onSaveWord(segment.words.joinToString(" ") { it.text }) },
                 onDismiss = onDismissTranslation,
             )
         }

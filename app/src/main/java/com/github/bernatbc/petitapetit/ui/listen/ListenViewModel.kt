@@ -2,6 +2,7 @@ package com.github.bernatbc.petitapetit.ui.listen
 
 import android.app.Application
 import android.content.ComponentName
+import com.github.bernatbc.petitapetit.PetitApplication
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
@@ -12,9 +13,7 @@ import androidx.media3.session.SessionToken
 import com.github.bernatbc.petitapetit.data.Episode
 import com.github.bernatbc.petitapetit.data.EpisodeRepository
 import com.github.bernatbc.petitapetit.data.TranscriptRepository
-import com.github.bernatbc.petitapetit.data.translation.FallbackTranslator
-import com.github.bernatbc.petitapetit.data.translation.MlKitTranslator
-import com.github.bernatbc.petitapetit.data.translation.MyMemoryTranslator
+import com.github.bernatbc.petitapetit.data.WordRepository
 import com.github.bernatbc.petitapetit.domain.WordLookup
 import com.github.bernatbc.petitapetit.domain.TranscriptSegment
 import com.github.bernatbc.petitapetit.player.PlaybackService
@@ -46,14 +45,15 @@ data class ListenUiState(
     val transcriptLoading: Boolean = false,
     val transcript: List<TranscriptSegment> = emptyList(),
     val wordTranslation: WordTranslation? = null,
+    val savedWords: Set<String> = emptySet(),
 )
 
 class ListenViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = EpisodeRepository()
     private val transcriptRepository = TranscriptRepository()
-    private val mlKitTranslator = MlKitTranslator()
-    private val translator = FallbackTranslator(mlKitTranslator, MyMemoryTranslator())
+    private val translator = (application as PetitApplication).translator
+    private val wordRepository = (application as PetitApplication).wordRepository
     private val translationCache = HashMap<String, String>()
     private var translationJob: Job? = null
     private val _state = MutableStateFlow(ListenUiState())
@@ -69,6 +69,12 @@ class ListenViewModel(application: Application) : AndroidViewModel(application) 
     init {
         connectController()
         loadEpisode()
+        viewModelScope.launch {
+            wordRepository.cards.collect { cards ->
+                val saved = cards.mapTo(HashSet()) { WordRepository.keyOf(it.word) }
+                _state.update { it.copy(savedWords = saved) }
+            }
+        }
     }
 
     fun loadEpisode() {
@@ -165,6 +171,19 @@ class ListenViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    // Saves the word shown in the popup together with the transcript line it came from.
+    fun saveCurrentWord(sentence: String) {
+        val current = _state.value.wordTranslation ?: return
+        val translation = current.translation ?: return
+        viewModelScope.launch {
+            wordRepository.add(current.word, translation, sentence, System.currentTimeMillis())
+        }
+    }
+
+    fun pause() {
+        controller?.pause()
+    }
+
     fun dismissTranslation() {
         translationJob?.cancel()
         _state.update { it.copy(wordTranslation = null) }
@@ -210,7 +229,6 @@ class ListenViewModel(application: Application) : AndroidViewModel(application) 
         controller?.removeListener(playerListener)
         controller?.release()
         controller = null
-        mlKitTranslator.close()
     }
 
     private fun Episode.toMediaItem(): MediaItem = MediaItem.Builder()

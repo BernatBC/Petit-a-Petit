@@ -12,6 +12,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,16 +30,25 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.github.bernatbc.petitapetit.data.EpisodeRepository
+import com.github.bernatbc.petitapetit.ui.dictionary.DictionaryScreen
+import com.github.bernatbc.petitapetit.ui.dictionary.DictionaryViewModel
+import com.github.bernatbc.petitapetit.ui.home.HomeScreen
+import com.github.bernatbc.petitapetit.ui.home.HomeViewModel
 import com.github.bernatbc.petitapetit.ui.listen.ListenScreen
 import com.github.bernatbc.petitapetit.ui.listen.ListenViewModel
 import com.github.bernatbc.petitapetit.ui.prompt.PromptScreen
 import com.github.bernatbc.petitapetit.ui.prompt.PromptViewModel
+import com.github.bernatbc.petitapetit.ui.review.ReviewScreen
+import com.github.bernatbc.petitapetit.ui.review.ReviewViewModel
 import com.github.bernatbc.petitapetit.ui.theme.PetitÀPetitTheme
 import com.github.bernatbc.petitapetit.ui.write.WriteScreen
 import com.github.bernatbc.petitapetit.ui.write.WriteViewModel
 
 private object Routes {
+    const val HOME = "home"
+    const val DICTIONARY = "dictionary"
     const val LISTEN = "listen"
+    const val REVIEW = "review"
     const val WRITE = "write"
     const val PROMPT = "prompt"
 }
@@ -58,18 +71,77 @@ private fun PetitÀPetitApp() {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val title = when (backStackEntry?.destination?.route) {
+        Routes.DICTIONARY -> R.string.dictionary_title
+        Routes.LISTEN -> R.string.step_listen
+        Routes.REVIEW -> R.string.step_review
         Routes.WRITE -> R.string.step_write
         Routes.PROMPT -> R.string.step_speak
-        else -> R.string.step_listen
+        else -> R.string.app_name
     }
     val context = LocalContext.current
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        topBar = { CenterAlignedTopAppBar(title = { Text(stringResource(title)) }) },
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text(stringResource(title)) },
+                navigationIcon = {
+                    if (backStackEntry?.destination?.route == Routes.DICTIONARY) {
+                        IconButton(onClick = { navController.popBackStack() }) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = stringResource(R.string.back),
+                            )
+                        }
+                    }
+                },
+            )
+        },
     ) { innerPadding ->
         val contentModifier = Modifier.padding(innerPadding)
-        NavHost(navController = navController, startDestination = Routes.LISTEN) {
+        NavHost(navController = navController, startDestination = Routes.HOME) {
+            composable(Routes.HOME) {
+                val viewModel: HomeViewModel = viewModel()
+                HomeScreen(
+                    onStartDaily = {
+                        viewModel.startDaily { navController.navigate(Routes.LISTEN) }
+                    },
+                    onOpenDictionary = { navController.navigate(Routes.DICTIONARY) },
+                    modifier = contentModifier,
+                )
+            }
+            composable(Routes.DICTIONARY) {
+                val viewModel: DictionaryViewModel = viewModel()
+                val cards by viewModel.cards.collectAsStateWithLifecycle()
+                DictionaryScreen(
+                    cards = cards,
+                    word = viewModel.word,
+                    translation = viewModel.translation,
+                    busy = viewModel.busy,
+                    message = viewModel.message,
+                    onWordChange = viewModel::onWordChange,
+                    onTranslationChange = viewModel::onTranslationChange,
+                    onTranslate = viewModel::translate,
+                    onAdd = viewModel::add,
+                    onDelete = viewModel::delete,
+                    modifier = contentModifier,
+                )
+            }
+            composable(Routes.REVIEW) {
+                val viewModel: ReviewViewModel = viewModel()
+                val state by viewModel.state.collectAsStateWithLifecycle()
+                ReviewScreen(
+                    state = state,
+                    onReveal = viewModel::reveal,
+                    onGrade = viewModel::grade,
+                    onContinue = {
+                        navController.navigate(Routes.WRITE) {
+                            popUpTo(Routes.REVIEW) { inclusive = true }
+                        }
+                    },
+                    modifier = contentModifier,
+                )
+            }
             composable(Routes.LISTEN) {
                 val viewModel: ListenViewModel = viewModel()
                 val state by viewModel.state.collectAsStateWithLifecycle()
@@ -80,12 +152,16 @@ private fun PetitÀPetitApp() {
                     onSkip = viewModel::skip,
                     onCycleSpeed = viewModel::cycleSpeed,
                     onWordTap = viewModel::translateWord,
+                    onSaveWord = viewModel::saveCurrentWord,
                     onDismissTranslation = viewModel::dismissTranslation,
                     onRetry = viewModel::loadEpisode,
                     onOpenWebsite = { pageUrl ->
                         openUrl(context, pageUrl?.takeIf { it.isNotBlank() } ?: EpisodeRepository.WEBSITE_URL)
                     },
-                    onDone = { navController.navigate(Routes.WRITE) },
+                    onDone = {
+                        viewModel.pause()
+                        navController.navigate(Routes.REVIEW)
+                    },
                     modifier = contentModifier,
                 )
             }
@@ -112,7 +188,7 @@ private fun PetitÀPetitApp() {
                         onBack = { navController.popBackStack() },
                         onRestart = {
                             viewModel.restart {
-                                navController.popBackStack(Routes.LISTEN, inclusive = false)
+                                navController.popBackStack(Routes.HOME, inclusive = false)
                             }
                         },
                         modifier = contentModifier,
