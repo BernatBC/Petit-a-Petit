@@ -11,6 +11,8 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.github.bernatbc.petitapetit.data.Episode
 import com.github.bernatbc.petitapetit.data.EpisodeRepository
+import com.github.bernatbc.petitapetit.data.TranscriptRepository
+import com.github.bernatbc.petitapetit.domain.TranscriptSegment
 import com.github.bernatbc.petitapetit.player.PlaybackService
 import com.google.common.util.concurrent.MoreExecutors
 import kotlinx.coroutines.Job
@@ -30,11 +32,14 @@ data class ListenUiState(
     val positionMs: Long = 0L,
     val durationMs: Long = 0L,
     val speed: Float = 1f,
+    val transcriptLoading: Boolean = false,
+    val transcript: List<TranscriptSegment> = emptyList(),
 )
 
 class ListenViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = EpisodeRepository()
+    private val transcriptRepository = TranscriptRepository()
     private val _state = MutableStateFlow(ListenUiState())
     val state: StateFlow<ListenUiState> = _state.asStateFlow()
 
@@ -57,8 +62,18 @@ class ListenViewModel(application: Application) : AndroidViewModel(application) 
                 .onSuccess { episode ->
                     _state.update { it.copy(loading = false, episode = episode) }
                     controller?.let(::syncFromPlayer)
+                    loadTranscript(episode)
                 }
                 .onFailure { _state.update { it.copy(loading = false, error = true) } }
+        }
+    }
+
+    private fun loadTranscript(episode: Episode) {
+        _state.update { it.copy(transcriptLoading = true, transcript = emptyList()) }
+        viewModelScope.launch {
+            val transcript = runCatching { transcriptRepository.fetchTranscript(episode.id) }
+                .getOrDefault(emptyList())
+            _state.update { it.copy(transcriptLoading = false, transcript = transcript) }
         }
     }
 
@@ -69,25 +84,34 @@ class ListenViewModel(application: Application) : AndroidViewModel(application) 
             player.pause()
             return
         }
+        prepare(player, episode)
+        player.play()
+    }
+
+    private fun prepare(player: Player, episode: Episode, startPositionMs: Long = 0L) {
         if (player.currentMediaItem?.mediaId != episode.id) {
-            player.setMediaItem(episode.toMediaItem())
+            player.setMediaItem(episode.toMediaItem(), startPositionMs)
             player.prepare()
         } else if (player.playbackState == Player.STATE_IDLE) {
             player.prepare()
         }
-        player.play()
     }
 
     fun seekTo(positionMs: Long) {
-        controller?.seekTo(positionMs)
+        val player = controller ?: return
+        val episode = _state.value.episode ?: return
+        if (player.currentMediaItem?.mediaId != episode.id) {
+            prepare(player, episode, positionMs)
+        } else {
+            player.seekTo(positionMs)
+        }
         _state.update { it.copy(positionMs = positionMs) }
     }
 
     fun skip(deltaMs: Long) {
-        val player = controller ?: return
-        val target = (player.currentPosition + deltaMs)
-            .coerceIn(0L, player.duration.takeIf { it > 0 } ?: Long.MAX_VALUE)
-        seekTo(target)
+        val current = _state.value
+        val limit = current.durationMs.takeIf { it > 0 } ?: Long.MAX_VALUE
+        seekTo((current.positionMs + deltaMs).coerceIn(0L, limit))
     }
 
     fun cycleSpeed() {
@@ -128,7 +152,7 @@ class ListenViewModel(application: Application) : AndroidViewModel(application) 
         progressJob = viewModelScope.launch {
             while (isActive) {
                 _state.update { it.copy(positionMs = player.currentPosition) }
-                delay(500)
+                delay(PROGRESS_INTERVAL_MS)
             }
         }
     }
@@ -152,5 +176,6 @@ class ListenViewModel(application: Application) : AndroidViewModel(application) 
 
     private companion object {
         val SPEEDS = listOf(1f, 0.75f, 0.5f, 1.25f)
+        const val PROGRESS_INTERVAL_MS = 100L
     }
 }
