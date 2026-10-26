@@ -27,13 +27,22 @@ The reminder uses an inexact alarm, so it needs no special permission but may ar
 - **Transcript**: word-level timings from the JSON endpoint used by the RFI website player, `https://francaisfacile.rfi.fr/fr/_ws/media/editions/<episode id>/0`. This is not a documented API and may change.
 - **Translation**: ML Kit on-device translation (French to English, about 30 MB model downloaded on first launch). While the model is not available, or if it fails, the MyMemory online API is used, which sends the tapped word to a third party.
 
+## Design
+
+A minimalist "ink and paper" look, built on the quill of the app icon (`icon.webp`):
+
+- **Palette**: warm paper and ink black with a single muted blue for the word being spoken. A matching dark theme follows the system setting. Dynamic colour is deliberately off, so the app looks the same on every device.
+- **Type**: Source Serif 4 for French content and headings, the system sans for the interface, small uppercase labels with wide tracking. The font files are in `app/src/main/res/font/` and are licensed under the SIL Open Font License (`licenses/SourceSerif4-OFL.md`).
+- **Components**: hairline dividers instead of cards, an underline-only text field, nearly square corners, a segmented step line instead of a stepper, and a hand-drawn play button. They live in `ui/components/`; the theme is in `ui/theme/`.
+- **Icons**: the adaptive launcher icon (with a themed monochrome layer), the legacy icons, the notification icon and the quill on the home screen are all generated from `icon.webp`.
+
 ## Project structure
 
 - `data/`: RSS feed, transcript, translation, summary draft (DataStore), dictionary (SQLite), settings (DataStore)
 - `domain/`: `PromptBuilder`, transcript timing, `Scheduler` (spaced repetition), `WordLookup`, reminder time
 - `player/`: `PlaybackService` (Media3 `MediaSessionService`)
 - `reminder/`: alarm scheduling, notification and receivers
-- `ui/`: Compose screens (`home`, `dictionary`, `listen`, `review`, `write`, `prompt`, `settings`)
+- `ui/`: Compose screens (`home`, `dictionary`, `listen`, `review`, `write`, `prompt`, `settings`), shared `components/` and the `theme/`
 
 ## Development
 

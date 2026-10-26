@@ -7,20 +7,23 @@ import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
+import androidx.compose.material3.TimePickerDefaults
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -37,6 +40,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import com.github.bernatbc.petitapetit.R
 import com.github.bernatbc.petitapetit.domain.ReminderSettings
+import com.github.bernatbc.petitapetit.ui.components.Hairline
+import com.github.bernatbc.petitapetit.ui.components.QuietButton
 
 @Composable
 fun SettingsScreen(
@@ -62,15 +67,10 @@ fun SettingsScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+            .padding(horizontal = 24.dp),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Text(stringResource(R.string.settings_reminder), style = MaterialTheme.typography.titleMedium)
+        Hairline()
+        SettingRow(label = stringResource(R.string.settings_reminder)) {
             Switch(
                 checked = reminder.enabled,
                 onCheckedChange = { enabled ->
@@ -79,29 +79,44 @@ fun SettingsScreen(
                         permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                     }
                 },
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = MaterialTheme.colorScheme.background,
+                    checkedTrackColor = MaterialTheme.colorScheme.onSurface,
+                    checkedBorderColor = MaterialTheme.colorScheme.onSurface,
+                    uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    uncheckedTrackColor = MaterialTheme.colorScheme.background,
+                    uncheckedBorderColor = MaterialTheme.colorScheme.outline,
+                ),
             )
         }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
+        Hairline()
+        SettingRow(
+            label = stringResource(R.string.settings_reminder_time),
+            onClick = if (reminder.enabled) ({ showTimePicker = true }) else null,
         ) {
-            Text(stringResource(R.string.settings_reminder_time))
-            OutlinedButton(onClick = { showTimePicker = true }, enabled = reminder.enabled) {
-                Text("%02d:%02d".format(reminder.hour, reminder.minute))
-            }
+            Text(
+                text = "%02d:%02d".format(reminder.hour, reminder.minute),
+                style = MaterialTheme.typography.headlineSmall,
+                color = if (reminder.enabled) {
+                    MaterialTheme.colorScheme.secondary
+                } else {
+                    MaterialTheme.colorScheme.outlineVariant
+                },
+            )
         }
+        Hairline()
 
         if (reminder.enabled && !notificationsAllowed) {
+            Spacer(Modifier.height(20.dp))
             Text(
-                stringResource(R.string.settings_notifications_blocked),
+                text = stringResource(R.string.settings_notifications_blocked),
                 color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodySmall,
             )
-            OutlinedButton(
+            QuietButton(
+                text = stringResource(R.string.settings_open_notification_settings),
                 onClick = { context.startActivity(notificationSettingsIntent(context.packageName)) },
-            ) { Text(stringResource(R.string.settings_open_notification_settings)) }
+            )
         }
     }
 
@@ -115,6 +130,25 @@ fun SettingsScreen(
             },
             onDismiss = { showTimePicker = false },
         )
+    }
+}
+
+@Composable
+private fun SettingRow(
+    label: String,
+    onClick: (() -> Unit)? = null,
+    trailing: @Composable () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(text = label, style = MaterialTheme.typography.titleMedium)
+        trailing()
     }
 }
 
@@ -134,17 +168,34 @@ private fun TimeDialog(
     onDismiss: () -> Unit,
 ) {
     val state = rememberTimePickerState(initialHour = hour, initialMinute = minute, is24Hour = true)
+    val scheme = MaterialTheme.colorScheme
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.settings_reminder_time)) },
-        text = { TimePicker(state = state) },
+        containerColor = scheme.background,
+        shape = MaterialTheme.shapes.large,
+        tonalElevation = 0.dp,
+        title = { Text(stringResource(R.string.settings_reminder_time), style = MaterialTheme.typography.titleLarge) },
+        text = {
+            TimePicker(
+                state = state,
+                colors = TimePickerDefaults.colors(
+                    containerColor = scheme.background,
+                    clockDialColor = scheme.surfaceVariant,
+                    clockDialSelectedContentColor = scheme.onPrimary,
+                    clockDialUnselectedContentColor = scheme.onSurface,
+                    selectorColor = scheme.onSurface,
+                    timeSelectorSelectedContainerColor = scheme.primaryContainer,
+                    timeSelectorUnselectedContainerColor = scheme.surfaceVariant,
+                    timeSelectorSelectedContentColor = scheme.onPrimaryContainer,
+                    timeSelectorUnselectedContentColor = scheme.onSurface,
+                ),
+            )
+        },
         confirmButton = {
-            TextButton(onClick = { onConfirm(state.hour, state.minute) }) {
-                Text(stringResource(R.string.ok))
-            }
+            QuietButton(text = stringResource(R.string.ok), onClick = { onConfirm(state.hour, state.minute) })
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
+            QuietButton(text = stringResource(R.string.cancel), onClick = onDismiss)
         },
     )
 }

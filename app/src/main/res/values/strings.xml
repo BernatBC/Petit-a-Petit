@@ -1,10 +1,11 @@
 <resources>
     <string name="app_name">Petit à Petit</string>
 
-    <string name="step_listen">1. Écouter</string>
-    <string name="step_review">2. Réviser</string>
-    <string name="step_write">3. Écrire</string>
-    <string name="step_speak">4. Parler avec Gemini</string>
+    <string name="step_listen">Écouter</string>
+    <string name="step_review">Réviser</string>
+    <string name="step_write">Écrire</string>
+    <string name="step_speak">Parler avec Gemini</string>
+    <string name="step_caption">Étape %1$d sur %2$d</string>
     <string name="dictionary_title">Mon dictionnaire</string>
 
     <string name="home_tagline">Écouter, réviser, écrire et parler : un peu de français chaque jour.</string>
@@ -57,12 +58,11 @@
     <string name="retry">Réessayer</string>
     <string name="play">Lecture</string>
     <string name="pause">Pause</string>
-    <string name="playback_speed">Vitesse de lecture : %1$s</string>
     <string name="transcript_loading">Chargement de la transcription…</string>
     <string name="transcript_unavailable">Transcription indisponible pour cet épisode.</string>
     <string name="transcript_follow">Suivre la lecture</string>
     <string name="translation_failed">Traduction indisponible</string>
-    <string name="open_website">Ouvrir sur le site RFI</string>
+    <string name="open_website">Site RFI</string>
     <string name="listened_done">J\'ai fini d\'écouter</string>
 
     <string name="write_intro">Résume en français une actualité que tu viens d\'entendre.</string>

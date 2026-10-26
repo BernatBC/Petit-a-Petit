@@ -1,5 +1,7 @@
 package com.github.bernatbc.petitapetit.ui.listen
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.DragInteraction
@@ -10,7 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -22,13 +23,13 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.github.bernatbc.petitapetit.R
@@ -36,8 +37,9 @@ import com.github.bernatbc.petitapetit.data.WordRepository
 import com.github.bernatbc.petitapetit.domain.TranscriptSegment
 import com.github.bernatbc.petitapetit.domain.activeSegmentIndex
 import kotlinx.coroutines.delay
+import java.util.Locale
 
-private const val TRANSLATION_VISIBLE_MS = 6_000L
+private const val TRANSLATION_VISIBLE_MS = 8_000L
 
 private data class WordSelection(val segment: Int, val word: Int)
 
@@ -96,7 +98,7 @@ fun TranscriptView(
     Box(modifier = modifier) {
         LazyColumn(
             state = listState,
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
         ) {
             itemsIndexed(segments) { index, segment ->
                 val spokenWords = when {
@@ -128,12 +130,18 @@ fun TranscriptView(
         }
 
         if (!following) {
-            FilledTonalButton(
-                onClick = { following = true },
+            Text(
+                text = stringResource(R.string.transcript_follow).uppercase(Locale.ROOT),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.inverseOnSurface,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = 8.dp),
-            ) { Text(stringResource(R.string.transcript_follow)) }
+                    .padding(bottom = 16.dp)
+                    .clip(MaterialTheme.shapes.medium)
+                    .background(MaterialTheme.colorScheme.inverseSurface)
+                    .clickable { following = true }
+                    .padding(horizontal = 18.dp, vertical = 12.dp),
+            )
         }
     }
 }
@@ -157,6 +165,8 @@ private fun SegmentText(
     var tappedBox by remember { mutableStateOf<Rect?>(null) }
     val currentOnWordTap by rememberUpdatedState(onWordTap)
 
+    // Spoken text is solid ink, upcoming text is faded, the current word sits on a soft tint.
+    // No weight change on the current word, so the line never reflows while playing.
     val built = remember(segment, spokenWords, currentWord, selectedWord, colors) {
         val ranges = ArrayList<IntRange>(segment.words.size)
         val text = buildAnnotatedString {
@@ -165,7 +175,6 @@ private fun SegmentText(
                     index == currentWord -> SpanStyle(
                         color = colors.onPrimaryContainer,
                         background = colors.primaryContainer,
-                        fontWeight = FontWeight.Bold,
                     )
 
                     index == selectedWord -> SpanStyle(
@@ -174,7 +183,7 @@ private fun SegmentText(
                     )
 
                     index < spokenWords -> SpanStyle(color = colors.onSurface)
-                    else -> SpanStyle(color = colors.onSurface.copy(alpha = 0.6f))
+                    else -> SpanStyle(color = colors.onSurface.copy(alpha = 0.5f))
                 }
                 val start = length
                 withStyle(style) { append(word.text) }
@@ -189,7 +198,7 @@ private fun SegmentText(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 6.dp),
+            .padding(vertical = 8.dp),
     ) {
         Text(
             text = text,
