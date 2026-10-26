@@ -12,6 +12,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,6 +33,7 @@ import com.github.bernatbc.petitapetit.data.EpisodeRepository
 import com.github.bernatbc.petitapetit.ui.dictionary.DictionaryScreen
 import com.github.bernatbc.petitapetit.ui.dictionary.DictionaryViewModel
 import com.github.bernatbc.petitapetit.ui.home.HomeScreen
+import com.github.bernatbc.petitapetit.ui.home.HomeViewModel
 import com.github.bernatbc.petitapetit.ui.listen.ListenScreen
 import com.github.bernatbc.petitapetit.ui.listen.ListenViewModel
 import com.github.bernatbc.petitapetit.ui.prompt.PromptScreen
@@ -77,13 +82,30 @@ private fun PetitÀPetitApp() {
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        topBar = { CenterAlignedTopAppBar(title = { Text(stringResource(title)) }) },
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text(stringResource(title)) },
+                navigationIcon = {
+                    if (backStackEntry?.destination?.route == Routes.DICTIONARY) {
+                        IconButton(onClick = { navController.popBackStack() }) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = stringResource(R.string.back),
+                            )
+                        }
+                    }
+                },
+            )
+        },
     ) { innerPadding ->
         val contentModifier = Modifier.padding(innerPadding)
         NavHost(navController = navController, startDestination = Routes.HOME) {
             composable(Routes.HOME) {
+                val viewModel: HomeViewModel = viewModel()
                 HomeScreen(
-                    onStartDaily = { navController.navigate(Routes.LISTEN) },
+                    onStartDaily = {
+                        viewModel.startDaily { navController.navigate(Routes.LISTEN) }
+                    },
                     onOpenDictionary = { navController.navigate(Routes.DICTIONARY) },
                     modifier = contentModifier,
                 )
