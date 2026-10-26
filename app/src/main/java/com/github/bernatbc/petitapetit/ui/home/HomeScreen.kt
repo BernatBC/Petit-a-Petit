@@ -21,6 +21,7 @@ import com.github.bernatbc.petitapetit.R
 fun HomeScreen(
     onStartDaily: () -> Unit,
     onOpenDictionary: () -> Unit,
+    onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -40,6 +41,9 @@ fun HomeScreen(
         }
         OutlinedButton(onClick = onOpenDictionary, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.home_dictionary))
+        }
+        OutlinedButton(onClick = onOpenSettings, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.home_settings))
         }
     }
 }

@@ -1,12 +1,16 @@
 package com.github.bernatbc.petitapetit
 
+import android.Manifest
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -19,10 +23,12 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
@@ -30,6 +36,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.github.bernatbc.petitapetit.data.EpisodeRepository
+import kotlinx.coroutines.flow.first
 import com.github.bernatbc.petitapetit.ui.dictionary.DictionaryScreen
 import com.github.bernatbc.petitapetit.ui.dictionary.DictionaryViewModel
 import com.github.bernatbc.petitapetit.ui.home.HomeScreen
@@ -40,6 +47,8 @@ import com.github.bernatbc.petitapetit.ui.prompt.PromptScreen
 import com.github.bernatbc.petitapetit.ui.prompt.PromptViewModel
 import com.github.bernatbc.petitapetit.ui.review.ReviewScreen
 import com.github.bernatbc.petitapetit.ui.review.ReviewViewModel
+import com.github.bernatbc.petitapetit.ui.settings.SettingsScreen
+import com.github.bernatbc.petitapetit.ui.settings.SettingsViewModel
 import com.github.bernatbc.petitapetit.ui.theme.PetitÀPetitTheme
 import com.github.bernatbc.petitapetit.ui.write.WriteScreen
 import com.github.bernatbc.petitapetit.ui.write.WriteViewModel
@@ -47,6 +56,7 @@ import com.github.bernatbc.petitapetit.ui.write.WriteViewModel
 private object Routes {
     const val HOME = "home"
     const val DICTIONARY = "dictionary"
+    const val SETTINGS = "settings"
     const val LISTEN = "listen"
     const val REVIEW = "review"
     const val WRITE = "write"
@@ -72,6 +82,7 @@ private fun PetitÀPetitApp() {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val title = when (backStackEntry?.destination?.route) {
         Routes.DICTIONARY -> R.string.dictionary_title
+        Routes.SETTINGS -> R.string.settings_title
         Routes.LISTEN -> R.string.step_listen
         Routes.REVIEW -> R.string.step_review
         Routes.WRITE -> R.string.step_write
@@ -79,6 +90,16 @@ private fun PetitÀPetitApp() {
         else -> R.string.app_name
     }
     val context = LocalContext.current
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
+    LaunchedEffect(Unit) {
+        val reminderEnabled = (context.applicationContext as PetitApplication)
+            .settingsRepository.reminder.first().enabled
+        if (reminderEnabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            !NotificationManagerCompat.from(context).areNotificationsEnabled()
+        ) {
+            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -86,7 +107,7 @@ private fun PetitÀPetitApp() {
             CenterAlignedTopAppBar(
                 title = { Text(stringResource(title)) },
                 navigationIcon = {
-                    if (backStackEntry?.destination?.route == Routes.DICTIONARY) {
+                    if (backStackEntry?.destination?.route in setOf(Routes.DICTIONARY, Routes.SETTINGS)) {
                         IconButton(onClick = { navController.popBackStack() }) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -107,6 +128,17 @@ private fun PetitÀPetitApp() {
                         viewModel.startDaily { navController.navigate(Routes.LISTEN) }
                     },
                     onOpenDictionary = { navController.navigate(Routes.DICTIONARY) },
+                    onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+                    modifier = contentModifier,
+                )
+            }
+            composable(Routes.SETTINGS) {
+                val viewModel: SettingsViewModel = viewModel()
+                val reminder by viewModel.reminder.collectAsStateWithLifecycle()
+                SettingsScreen(
+                    reminder = reminder,
+                    onEnabledChange = viewModel::setEnabled,
+                    onTimeChange = viewModel::setTime,
                     modifier = contentModifier,
                 )
             }
