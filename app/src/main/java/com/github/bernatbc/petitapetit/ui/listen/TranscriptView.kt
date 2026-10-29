@@ -42,6 +42,7 @@ import java.util.Locale
 private const val TRANSLATION_VISIBLE_MS = 8_000L
 
 private data class WordSelection(val segment: Int, val word: Int)
+private data class ActiveWordBounds(val segment: Int, val word: Int, val bounds: Rect)
 
 @Composable
 fun TranscriptView(
@@ -58,6 +59,8 @@ fun TranscriptView(
     var following by remember { mutableStateOf(true) }
     var selection by remember { mutableStateOf<WordSelection?>(null) }
     val activeIndex = segments.activeSegmentIndex(positionMs)
+    val activeWord = segments.getOrNull(activeIndex)?.spokenWords(positionMs)?.minus(1) ?: -1
+    var activeWordBounds by remember { mutableStateOf<ActiveWordBounds?>(null) }
 
     fun dismiss() {
         selection = null
@@ -74,16 +77,24 @@ fun TranscriptView(
         }
     }
 
-    LaunchedEffect(activeIndex, following) {
-        if (!following || activeIndex < 0) return@LaunchedEffect
+    LaunchedEffect(activeIndex, activeWord, activeWordBounds, following) {
+        if (!following || activeIndex < 0 || activeWord < 0) return@LaunchedEffect
         val target = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == activeIndex }
         if (target == null) {
             listState.animateScrollToItem(activeIndex)
-        } else {
-            val anchor = listState.layoutInfo.viewportSize.height / 4
-            val delta = target.offset - anchor
-            if (delta != 0) listState.animateScrollBy(delta.toFloat())
+            return@LaunchedEffect
         }
+
+        val bounds = activeWordBounds
+            ?.takeIf { it.segment == activeIndex && it.word == activeWord }
+            ?.bounds
+            ?: return@LaunchedEffect
+        val viewportHeight = listState.layoutInfo.viewportSize.height
+        val anchor = viewportHeight * 0.38f
+        val wordCenter = target.offset + (bounds.top + bounds.bottom) / 2f
+        val delta = wordCenter - anchor
+        // Recenter once the word drifts beyond a small tolerance, so scrolling happens per line, not per word.
+        if (kotlin.math.abs(delta) > viewportHeight * 0.08f) listState.animateScrollBy(delta)
     }
 
     val translationDone = wordTranslation != null &&
@@ -111,6 +122,11 @@ fun TranscriptView(
                     segment = segment,
                     spokenWords = spokenWords,
                     currentWord = if (index == activeIndex) spokenWords - 1 else -1,
+                    onCurrentWordBoundsChanged = { bounds ->
+                        if (index == activeIndex && bounds != null) {
+                            activeWordBounds = ActiveWordBounds(index, activeWord, bounds)
+                        }
+                    },
                     selectedWord = selectedWord,
                     translation = if (selectedWord >= 0) wordTranslation else null,
                     saved = selectedWord >= 0 && wordTranslation != null &&
@@ -153,6 +169,7 @@ private fun SegmentText(
     segment: TranscriptSegment,
     spokenWords: Int,
     currentWord: Int,
+    onCurrentWordBoundsChanged: (Rect?) -> Unit,
     selectedWord: Int,
     translation: WordTranslation?,
     saved: Boolean,
@@ -164,6 +181,7 @@ private fun SegmentText(
     var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
     var tappedBox by remember { mutableStateOf<Rect?>(null) }
     val currentOnWordTap by rememberUpdatedState(onWordTap)
+    val currentOnCurrentWordBoundsChanged by rememberUpdatedState(onCurrentWordBoundsChanged)
 
     // Spoken text is solid ink, upcoming text is faded, the current word sits on a soft tint.
     // No weight change on the current word, so the line never reflows while playing.
@@ -194,6 +212,12 @@ private fun SegmentText(
         text to WordRanges(ranges)
     }
     val (text, wordRanges) = built
+
+    LaunchedEffect(layout, currentWord, wordRanges) {
+        val range = wordRanges.ranges.getOrNull(currentWord)
+        val bounds = layout?.takeIf { range != null }?.getBoundingBox(range!!.first)
+        currentOnCurrentWordBoundsChanged(bounds)
+    }
 
     Box(
         modifier = Modifier
