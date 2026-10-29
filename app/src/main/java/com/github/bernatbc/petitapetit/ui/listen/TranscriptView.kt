@@ -41,6 +41,9 @@ import java.util.Locale
 
 private const val TRANSLATION_VISIBLE_MS = 8_000L
 
+// Highlight words slightly ahead of playback to compensate for position polling and audio latency.
+private const val HIGHLIGHT_LEAD_MS = 250L
+
 private data class WordSelection(val segment: Int, val word: Int)
 private data class ActiveWordBounds(val segment: Int, val word: Int, val bounds: Rect)
 
@@ -58,8 +61,9 @@ fun TranscriptView(
     val listState = rememberLazyListState()
     var following by remember { mutableStateOf(true) }
     var selection by remember { mutableStateOf<WordSelection?>(null) }
-    val activeIndex = segments.activeSegmentIndex(positionMs)
-    val activeWord = segments.getOrNull(activeIndex)?.spokenWords(positionMs)?.minus(1) ?: -1
+    val highlightMs = positionMs + HIGHLIGHT_LEAD_MS
+    val activeIndex = segments.activeSegmentIndex(highlightMs)
+    val activeWord = segments.getOrNull(activeIndex)?.spokenWords(highlightMs)?.minus(1) ?: -1
     var activeWordBounds by remember { mutableStateOf<ActiveWordBounds?>(null) }
 
     fun dismiss() {
@@ -114,7 +118,7 @@ fun TranscriptView(
             itemsIndexed(segments) { index, segment ->
                 val spokenWords = when {
                     index < activeIndex -> segment.words.size
-                    index == activeIndex -> segment.spokenWords(positionMs)
+                    index == activeIndex -> segment.spokenWords(highlightMs)
                     else -> 0
                 }
                 val selectedWord = selection?.takeIf { it.segment == index }?.word ?: -1
